@@ -107,7 +107,9 @@ export default async function handler(req, res) {
 
   try {
     const daily = await fetchInsights(token, since, until, 'account');
-    res.status(200).json({ daily, campaigns: [], ads: [], age: [], gender: [], ad_urls: {}, updated: until });
+    const campaigns = await fetchInsights(token, since, until, 'campaign');
+    const ads = await fetchInsights(token, since, until, 'ad');
+    res.status(200).json({ daily, campaigns, ads, age: [], gender: [], ad_urls: {}, updated: until });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
