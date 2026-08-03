@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/meta.py": {
+      "maxDuration": 30
+    }
+  }
+}
