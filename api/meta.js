@@ -49,7 +49,8 @@ async function fetchInsights(token, since, until, level, breakdowns) {
     access_token: token,
     fields: FIELDS,
     level,
-    time_ranges: JSON.stringify([{ since, until }]),
+    since,
+    until,
     time_increment: '1',
     limit: '500',
   });
