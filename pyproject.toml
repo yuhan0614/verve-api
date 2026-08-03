@@ -1,6 +1,0 @@
-[project]
-name = "verve-api"
-version = "0.1.0"
-
-[tool.vercel]
-entrypoint = "api.meta:app"
