@@ -1,9 +1,21 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, make_response
 import os, json, requests as req
 
 app = Flask(__name__)
-CORS(app)
+
+def cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
+@app.after_request
+def after_request(response):
+    return cors(response)
+
+@app.route('/api/meta', methods=['OPTIONS'])
+def meta_options():
+    return cors(make_response('', 204))
 
 TOKEN   = os.environ.get("META_ACCESS_TOKEN", "")
 ACCOUNT = "1417409513448597"
