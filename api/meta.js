@@ -106,16 +106,12 @@ export default async function handler(req, res) {
   if (!since || !until) return res.status(400).json({ error: 'since and until required' });
 
   try {
-    const [daily, campaigns, ads, age, gender] = await Promise.all([
+    const [daily, campaigns, ads] = await Promise.all([
       fetchInsights(token, since, until, 'account'),
       fetchInsights(token, since, until, 'campaign'),
       fetchInsights(token, since, until, 'ad'),
-      fetchInsights(token, since, until, 'campaign', 'age'),
-      fetchInsights(token, since, until, 'campaign', 'gender'),
     ]);
-    let ad_urls = {};
-    try { ad_urls = await fetchAdUrls(token); } catch {}
-    res.status(200).json({ daily, campaigns, ads, age, gender, ad_urls, updated: until });
+    res.status(200).json({ daily, campaigns, ads, age: [], gender: [], ad_urls: {}, updated: until });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
