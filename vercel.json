@@ -1,7 +1,14 @@
 {
-  "functions": {
-    "api/meta.py": {
-      "maxDuration": 30
+  "builds": [
+    {
+      "src": "api/meta.py",
+      "use": "@vercel/python"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/meta",
+      "dest": "api/meta.py"
+    }
+  ]
 }

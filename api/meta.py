@@ -1,6 +1,9 @@
-from http.server import BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-import json, os, requests
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import os, json, requests as req
+
+app = Flask(__name__)
+CORS(app)
 
 TOKEN   = os.environ.get("META_ACCESS_TOKEN", "")
 ACCOUNT = "1417409513448597"
@@ -24,32 +27,32 @@ def parse_row(row, level):
     if cpa == 0 and purchase > 0:
         cpa = spend / purchase
     r = {
-        "date_start": row.get("date_start",""),
+        "date_start": row.get("date_start", ""),
         "spend": spend,
-        "impressions": int(row.get("impressions",0) or 0),
-        "clicks": int(row.get("clicks",0) or 0),
-        "link_clicks": int(row.get("inline_link_clicks",0) or 0),
-        "add_to_cart": _av(actions,"add_to_cart"),
+        "impressions": int(row.get("impressions", 0) or 0),
+        "clicks": int(row.get("clicks", 0) or 0),
+        "link_clicks": int(row.get("inline_link_clicks", 0) or 0),
+        "add_to_cart": _av(actions, "add_to_cart"),
         "purchase": purchase,
-        "purchase_value": _av(avals,"purchase"),
-        "cpc": float(row.get("cpc",0) or 0),
-        "cplc": float(row.get("cost_per_inline_link_click",0) or 0),
-        "ctr": float(row.get("ctr",0) or 0),
+        "purchase_value": _av(avals, "purchase"),
+        "cpc": float(row.get("cpc", 0) or 0),
+        "cplc": float(row.get("cost_per_inline_link_click", 0) or 0),
+        "ctr": float(row.get("ctr", 0) or 0),
         "cpa": cpa,
         "roas": float(roas_l[0]["value"]) if roas_l else 0.0,
-        "reach": int(row.get("reach",0) or 0),
-        "frequency": float(row.get("frequency",0) or 0),
+        "reach": int(row.get("reach", 0) or 0),
+        "frequency": float(row.get("frequency", 0) or 0),
     }
     if "age"    in row: r["age"]    = row["age"]
     if "gender" in row: r["gender"] = row["gender"]
-    if level in ("campaign","ad"):
-        r["campaign_id"]   = row.get("campaign_id","")
-        r["campaign_name"] = row.get("campaign_name","")
+    if level in ("campaign", "ad"):
+        r["campaign_id"]   = row.get("campaign_id", "")
+        r["campaign_name"] = row.get("campaign_name", "")
     if level == "ad":
-        r["adset_id"]   = row.get("adset_id","")
-        r["adset_name"] = row.get("adset_name","")
-        r["ad_id"]      = row.get("ad_id","")
-        r["ad_name"]    = row.get("ad_name","")
+        r["adset_id"]   = row.get("adset_id", "")
+        r["adset_name"] = row.get("adset_name", "")
+        r["ad_id"]      = row.get("ad_id", "")
+        r["ad_name"]    = row.get("ad_name", "")
     return r
 
 def fetch(since, until, level, time_inc="1", breakdowns=None):
@@ -66,12 +69,12 @@ def fetch(since, until, level, time_inc="1", breakdowns=None):
         params["breakdowns"] = breakdowns
     rows = []
     while url:
-        r = requests.get(url, params=params, timeout=30)
+        r = req.get(url, params=params, timeout=25)
         data = r.json()
         if "error" in data:
             raise Exception(data["error"]["message"])
-        rows += [parse_row(row, level) for row in data.get("data",[])]
-        url = data.get("paging",{}).get("next")
+        rows += [parse_row(row, level) for row in data.get("data", [])]
+        url = data.get("paging", {}).get("next")
         params = {}
     return rows
 
@@ -84,70 +87,52 @@ def fetch_ad_urls():
         "limit": 500,
     }
     while url:
-        r = requests.get(url, params=params, timeout=30)
+        r = req.get(url, params=params, timeout=25)
         data = r.json()
         if "error" in data:
             break
-        for ad in data.get("data",[]):
-            name = ad.get("name","")
+        for ad in data.get("data", []):
+            name = ad.get("name", "")
             creative = ad.get("creative") or {}
             spec = creative.get("object_story_spec") or {}
             dest = None
             if "link_data" in spec:
                 dest = spec["link_data"].get("link")
             elif "video_data" in spec:
-                dest = (spec["video_data"].get("call_to_action") or {}).get("value",{}).get("link")
+                dest = (spec["video_data"].get("call_to_action") or {}).get("value", {}).get("link")
             thumb = creative.get("thumbnail_url") or creative.get("image_url")
             if name not in result:
                 result[name] = {"url": dest if dest and "{{" not in (dest or "") else None, "thumb": thumb}
-        url = data.get("paging",{}).get("next")
+        url = data.get("paging", {}).get("next")
         params = {}
     return result
 
-class handler(BaseHTTPRequestHandler):
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self._cors()
-        self.end_headers()
-
-    def do_GET(self):
-        qs = parse_qs(urlparse(self.path).query)
-        since = qs.get("since",[""])[0]
-        until = qs.get("until",[""])[0]
+@app.route("/api/meta")
+def meta():
+    since = request.args.get("since", "")
+    until = request.args.get("until", "")
+    if not TOKEN:
+        return jsonify({"error": "META_ACCESS_TOKEN not set"}), 500
+    if not since or not until:
+        return jsonify({"error": "since and until required"}), 400
+    try:
+        daily     = fetch(since, until, "account")
+        campaigns = fetch(since, until, "campaign")
+        ads       = fetch(since, until, "ad")
+        age       = fetch(since, until, "campaign", breakdowns="age")
+        gender    = fetch(since, until, "campaign", breakdowns="gender")
         try:
-            if not TOKEN:
-                raise Exception("META_ACCESS_TOKEN not set")
-            daily    = fetch(since, until, "account")
-            campaigns = fetch(since, until, "campaign")
-            ads      = fetch(since, until, "ad")
-            age      = fetch(since, until, "campaign", breakdowns="age")
-            gender   = fetch(since, until, "campaign", breakdowns="gender")
-            try:
-                ad_urls = fetch_ad_urls()
-            except:
-                ad_urls = {}
-            body = json.dumps({
-                "daily": daily,
-                "campaigns": campaigns,
-                "ads": ads,
-                "age": age,
-                "gender": gender,
-                "ad_urls": ad_urls,
-                "updated": until,
-            }, ensure_ascii=False).encode()
-            self.send_response(200)
-            self.send_header("Content-Type","application/json")
-            self._cors()
-            self.end_headers()
-            self.wfile.write(body)
-        except Exception as e:
-            self.send_response(500)
-            self.send_header("Content-Type","application/json")
-            self._cors()
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
-
-    def _cors(self):
-        self.send_header("Access-Control-Allow-Origin","*")
-        self.send_header("Access-Control-Allow-Methods","GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers","Content-Type")
+            ad_urls = fetch_ad_urls()
+        except:
+            ad_urls = {}
+        return jsonify({
+            "daily": daily,
+            "campaigns": campaigns,
+            "ads": ads,
+            "age": age,
+            "gender": gender,
+            "ad_urls": ad_urls,
+            "updated": until,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
