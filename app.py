@@ -31,22 +31,26 @@ def write_cache(key, data):
     with open(cache_path(key), "w") as f:
         json.dump(data, f, ensure_ascii=False)
 
+def fetch_meta(s, u, token):
+    daily     = get_insights(ACCOUNT_ID, s, u, "account",  "1",        token)
+    campaigns = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token)
+    ads       = get_insights(ACCOUNT_ID, s, u, "ad",       "all_days", token)
+    age       = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "age")
+    gender    = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "gender")
+    return {"daily": daily, "campaigns": campaigns, "ads": ads,
+            "age": age, "gender": gender, "since": s, "until": u, "updated": now_str()}
+
 def refresh():
     token = os.environ.get("META_ACCESS_TOKEN")
     if not token:
         return
     try:
         today = datetime.now(TZ)
-        since = (today - timedelta(days=29)).strftime("%Y-%m-%d")
-        until = today.strftime("%Y-%m-%d")
-        daily     = get_insights(ACCOUNT_ID, since, until, "account",  "1",        token)
-        campaigns = get_insights(ACCOUNT_ID, since, until, "campaign", "all_days", token)
-        ads       = get_insights(ACCOUNT_ID, since, until, "ad",       "all_days", token)
-        age       = get_insights(ACCOUNT_ID, since, until, "campaign", "all_days", token, "age")
-        gender    = get_insights(ACCOUNT_ID, since, until, "campaign", "all_days", token, "gender")
-        write_cache("meta", {"daily": daily, "campaigns": campaigns, "ads": ads,
-                             "age": age, "gender": gender, "updated": now_str()})
-        print(f"[{now_str()}] Refreshed — {len(campaigns)} campaigns, {len(ads)} ads")
+        s = (today - timedelta(days=29)).strftime("%Y-%m-%d")
+        u = today.strftime("%Y-%m-%d")
+        result = fetch_meta(s, u, token)
+        write_cache("meta", result)
+        print(f"[{now_str()}] Refreshed — {len(result['campaigns'])} campaigns, {len(result['ads'])} ads")
     except Exception as e:
         print(f"[{now_str()}] Refresh failed: {e}")
 
@@ -64,23 +68,22 @@ def api_meta():
     if not token:
         return jsonify({"error": "META_ACCESS_TOKEN not set"}), 500
 
+    today = datetime.now(TZ)
+    s = since or (today - timedelta(days=29)).strftime("%Y-%m-%d")
+    u = until or today.strftime("%Y-%m-%d")
+
     if not force:
         cached = read_cache("meta")
-        if cached:
+        if cached and cached.get("since") == s and cached.get("until") == u:
             return jsonify(cached)
 
     try:
-        today = datetime.now(TZ)
-        s = since or (today - timedelta(days=29)).strftime("%Y-%m-%d")
-        u = until or today.strftime("%Y-%m-%d")
-        daily     = get_insights(ACCOUNT_ID, s, u, "account",  "1",        token)
-        campaigns = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token)
-        ads       = get_insights(ACCOUNT_ID, s, u, "ad",       "all_days", token)
-        age       = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "age")
-        gender    = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "gender")
-        result = {"daily": daily, "campaigns": campaigns, "ads": ads,
-                  "age": age, "gender": gender, "updated": now_str()}
-        write_cache("meta", result)
+        result = fetch_meta(s, u, token)
+        # 只有預設30天範圍才覆蓋 cache，自訂區間不覆蓋
+        default_s = (today - timedelta(days=29)).strftime("%Y-%m-%d")
+        default_u = today.strftime("%Y-%m-%d")
+        if s == default_s and u == default_u:
+            write_cache("meta", result)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
