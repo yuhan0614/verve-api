@@ -236,6 +236,7 @@ def api_google_ads():
         if since and until:
             date_clause = f"BETWEEN '{since}' AND '{until}'"
 
+        # 每日×活動
         query = f"""
             SELECT
                 campaign.id,
@@ -265,7 +266,91 @@ def api_google_ads():
                     "conversions":   row.metrics.conversions,
                     "conversion_value": round(row.metrics.conversions_value, 2),
                 })
-        return jsonify({"data": rows, "updated": now_str()})
+
+        # 年齡層分析
+        age_query = f"""
+            SELECT
+                ad_group_criterion.age_range.type,
+                metrics.impressions,
+                metrics.clicks,
+                metrics.cost_micros,
+                metrics.conversions,
+                metrics.conversions_value
+            FROM age_range_view
+            WHERE segments.date {date_clause}
+        """
+        AGE_LABEL = {
+            "AGE_RANGE_18_24": "18-24",
+            "AGE_RANGE_25_34": "25-34",
+            "AGE_RANGE_35_44": "35-44",
+            "AGE_RANGE_45_54": "45-54",
+            "AGE_RANGE_55_64": "55-64",
+            "AGE_RANGE_65_UP": "65+",
+            "AGE_RANGE_UNDETERMINED": "不明",
+        }
+        age_map = {}
+        try:
+            stream_age = ga_service.search_stream(customer_id=customer_id, query=age_query)
+            for batch in stream_age:
+                for row in batch.results:
+                    key = str(row.ad_group_criterion.age_range.type.name)
+                    label = AGE_LABEL.get(key, key)
+                    if label not in age_map:
+                        age_map[label] = {"age": label, "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
+                    age_map[label]["impressions"]       += row.metrics.impressions
+                    age_map[label]["clicks"]            += row.metrics.clicks
+                    age_map[label]["cost"]              += row.metrics.cost_micros / 1_000_000
+                    age_map[label]["conversions"]       += row.metrics.conversions
+                    age_map[label]["conversion_value"]  += row.metrics.conversions_value
+            for v in age_map.values():
+                v["cost"] = round(v["cost"], 2)
+                v["conversion_value"] = round(v["conversion_value"], 2)
+        except Exception as e:
+            print(f"[gads] age query failed: {e}")
+
+        # 性別分析
+        gender_query = f"""
+            SELECT
+                ad_group_criterion.gender.type,
+                metrics.impressions,
+                metrics.clicks,
+                metrics.cost_micros,
+                metrics.conversions,
+                metrics.conversions_value
+            FROM gender_view
+            WHERE segments.date {date_clause}
+        """
+        GENDER_LABEL = {
+            "GENDER_TYPE_MALE": "男性",
+            "GENDER_TYPE_FEMALE": "女性",
+            "GENDER_TYPE_UNDETERMINED": "不明",
+        }
+        gender_map = {}
+        try:
+            stream_gender = ga_service.search_stream(customer_id=customer_id, query=gender_query)
+            for batch in stream_gender:
+                for row in batch.results:
+                    key = str(row.ad_group_criterion.gender.type.name)
+                    label = GENDER_LABEL.get(key, key)
+                    if label not in gender_map:
+                        gender_map[label] = {"gender": label, "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
+                    gender_map[label]["impressions"]       += row.metrics.impressions
+                    gender_map[label]["clicks"]            += row.metrics.clicks
+                    gender_map[label]["cost"]              += row.metrics.cost_micros / 1_000_000
+                    gender_map[label]["conversions"]       += row.metrics.conversions
+                    gender_map[label]["conversion_value"]  += row.metrics.conversions_value
+            for v in gender_map.values():
+                v["cost"] = round(v["cost"], 2)
+                v["conversion_value"] = round(v["conversion_value"], 2)
+        except Exception as e:
+            print(f"[gads] gender query failed: {e}")
+
+        return jsonify({
+            "data": rows,
+            "age": list(age_map.values()),
+            "gender": list(gender_map.values()),
+            "updated": now_str()
+        })
     except KeyError as e:
         return jsonify({"error": f"Missing env var: {e}"}), 500
     except Exception as e:
