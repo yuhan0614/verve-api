@@ -214,6 +214,63 @@ def api_ad_urls():
     write_cache("ad_urls", {"data": result})
     return jsonify({"data": result})
 
+@app.route("/api/google-ads")
+def api_google_ads():
+    since = request.args.get("since")
+    until = request.args.get("until")
+    try:
+        from google.ads.googleads.client import GoogleAdsClient
+        config = {
+            "developer_token": os.environ["GOOGLE_ADS_DEVELOPER_TOKEN"],
+            "client_id":       os.environ["GOOGLE_ADS_CLIENT_ID"],
+            "client_secret":   os.environ["GOOGLE_ADS_CLIENT_SECRET"],
+            "refresh_token":   os.environ["GOOGLE_ADS_REFRESH_TOKEN"],
+            "login_customer_id": os.environ["GOOGLE_ADS_LOGIN_CUSTOMER_ID"],
+            "use_proto_plus":  True,
+        }
+        client = GoogleAdsClient.load_from_dict(config)
+        ga_service = client.get_service("GoogleAdsService")
+        customer_id = os.environ["GOOGLE_ADS_CUSTOMER_ID"]
+
+        date_clause = "DURING LAST_30_DAYS"
+        if since and until:
+            date_clause = f"BETWEEN '{since}' AND '{until}'"
+
+        query = f"""
+            SELECT
+                campaign.id,
+                campaign.name,
+                segments.date,
+                metrics.impressions,
+                metrics.clicks,
+                metrics.cost_micros,
+                metrics.conversions,
+                metrics.conversions_value
+            FROM campaign
+            WHERE segments.date {date_clause}
+              AND campaign.status = 'ENABLED'
+            ORDER BY segments.date DESC
+        """
+        rows = []
+        stream = ga_service.search_stream(customer_id=customer_id, query=query)
+        for batch in stream:
+            for row in batch.results:
+                rows.append({
+                    "campaign_id":   str(row.campaign.id),
+                    "campaign_name": row.campaign.name,
+                    "date":          row.segments.date,
+                    "impressions":   row.metrics.impressions,
+                    "clicks":        row.metrics.clicks,
+                    "cost":          round(row.metrics.cost_micros / 1_000_000, 2),
+                    "conversions":   row.metrics.conversions,
+                    "conversion_value": round(row.metrics.conversions_value, 2),
+                })
+        return jsonify({"data": rows, "updated": now_str()})
+    except KeyError as e:
+        return jsonify({"error": f"Missing env var: {e}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "time": now_str()})
