@@ -280,13 +280,13 @@ def api_google_ads():
             WHERE segments.date {date_clause}
         """
         AGE_LABEL = {
-            "AGE_RANGE_18_24": "18-24",
-            "AGE_RANGE_25_34": "25-34",
-            "AGE_RANGE_35_44": "35-44",
-            "AGE_RANGE_45_54": "45-54",
-            "AGE_RANGE_55_64": "55-64",
-            "AGE_RANGE_65_UP": "65+",
-            "AGE_RANGE_UNDETERMINED": "不明",
+            "AGE_RANGE_18_24": "18-24", "18_24": "18-24",
+            "AGE_RANGE_25_34": "25-34", "25_34": "25-34",
+            "AGE_RANGE_35_44": "35-44", "35_44": "35-44",
+            "AGE_RANGE_45_54": "45-54", "45_54": "45-54",
+            "AGE_RANGE_55_64": "55-64", "55_64": "55-64",
+            "AGE_RANGE_65_UP": "65+",   "65_UP": "65+",
+            "AGE_RANGE_UNDETERMINED": "不明", "UNDETERMINED": "不明",
         }
         age_map = {}
         try:
@@ -321,9 +321,9 @@ def api_google_ads():
             WHERE segments.date {date_clause}
         """
         GENDER_LABEL = {
-            "GENDER_TYPE_MALE": "男性",
-            "GENDER_TYPE_FEMALE": "女性",
-            "GENDER_TYPE_UNDETERMINED": "不明",
+            "MALE": "男性", "GENDER_TYPE_MALE": "男性",
+            "FEMALE": "女性", "GENDER_TYPE_FEMALE": "女性",
+            "UNDETERMINED": "不明", "GENDER_TYPE_UNDETERMINED": "不明",
         }
         gender_map = {}
         try:
