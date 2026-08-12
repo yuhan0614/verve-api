@@ -60,7 +60,7 @@ def fetch_ad_urls(token):
 def fetch_meta(s, u, token):
     daily     = get_insights(ACCOUNT_ID, s, u, "account",  "1",        token)
     campaigns = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token)
-    ads       = get_insights(ACCOUNT_ID, s, u, "ad",       "all_days", token)
+    ads       = get_insights(ACCOUNT_ID, s, u, "ad",       "1",        token)
     age       = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "age")
     gender    = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "gender")
     ad_urls   = fetch_ad_urls(token)
@@ -249,7 +249,6 @@ def api_google_ads():
                 metrics.conversions_value
             FROM campaign
             WHERE segments.date {date_clause}
-              AND campaign.status = 'ENABLED'
             ORDER BY segments.date DESC
         """
         rows = []
