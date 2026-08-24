@@ -270,6 +270,8 @@ def api_google_ads():
         age_query = f"""
             SELECT
                 ad_group_criterion.age_range.type,
+                segments.date,
+                campaign.name,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
@@ -294,13 +296,17 @@ def api_google_ads():
                 for row in batch.results:
                     key = str(row.ad_group_criterion.age_range.type.name)
                     label = AGE_LABEL.get(key, key)
-                    if label not in age_map:
-                        age_map[label] = {"age": label, "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
-                    age_map[label]["impressions"]       += row.metrics.impressions
-                    age_map[label]["clicks"]            += row.metrics.clicks
-                    age_map[label]["cost"]              += row.metrics.cost_micros / 1_000_000
-                    age_map[label]["conversions"]       += row.metrics.conversions
-                    age_map[label]["conversion_value"]  += row.metrics.conversions_value
+                    date  = row.segments.date
+                    camp  = row.campaign.name
+                    k = (date, camp, label)
+                    if k not in age_map:
+                        age_map[k] = {"age": label, "date": date, "campaign_name": camp,
+                                      "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
+                    age_map[k]["impressions"]       += row.metrics.impressions
+                    age_map[k]["clicks"]            += row.metrics.clicks
+                    age_map[k]["cost"]              += row.metrics.cost_micros / 1_000_000
+                    age_map[k]["conversions"]       += row.metrics.conversions
+                    age_map[k]["conversion_value"]  += row.metrics.conversions_value
             for v in age_map.values():
                 v["cost"] = round(v["cost"], 2)
                 v["conversion_value"] = round(v["conversion_value"], 2)
@@ -311,6 +317,8 @@ def api_google_ads():
         gender_query = f"""
             SELECT
                 ad_group_criterion.gender.type,
+                segments.date,
+                campaign.name,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
@@ -331,13 +339,17 @@ def api_google_ads():
                 for row in batch.results:
                     key = str(row.ad_group_criterion.gender.type.name)
                     label = GENDER_LABEL.get(key, key)
-                    if label not in gender_map:
-                        gender_map[label] = {"gender": label, "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
-                    gender_map[label]["impressions"]       += row.metrics.impressions
-                    gender_map[label]["clicks"]            += row.metrics.clicks
-                    gender_map[label]["cost"]              += row.metrics.cost_micros / 1_000_000
-                    gender_map[label]["conversions"]       += row.metrics.conversions
-                    gender_map[label]["conversion_value"]  += row.metrics.conversions_value
+                    date  = row.segments.date
+                    camp  = row.campaign.name
+                    k = (date, camp, label)
+                    if k not in gender_map:
+                        gender_map[k] = {"gender": label, "date": date, "campaign_name": camp,
+                                         "impressions": 0, "clicks": 0, "cost": 0.0, "conversions": 0, "conversion_value": 0.0}
+                    gender_map[k]["impressions"]       += row.metrics.impressions
+                    gender_map[k]["clicks"]            += row.metrics.clicks
+                    gender_map[k]["cost"]              += row.metrics.cost_micros / 1_000_000
+                    gender_map[k]["conversions"]       += row.metrics.conversions
+                    gender_map[k]["conversion_value"]  += row.metrics.conversions_value
             for v in gender_map.values():
                 v["cost"] = round(v["cost"], 2)
                 v["conversion_value"] = round(v["conversion_value"], 2)
