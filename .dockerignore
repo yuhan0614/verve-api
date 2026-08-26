@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+api
+vercel.json
+package.json
+package-lock.json
+Procfile
+__pycache__
+*.pyc
+.env
+client_secret*.json
