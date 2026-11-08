@@ -59,10 +59,10 @@ def fetch_ad_urls(token):
 
 def fetch_meta(s, u, token):
     daily     = get_insights(ACCOUNT_ID, s, u, "account",  "1",        token)
-    campaigns = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token)
+    campaigns = get_insights(ACCOUNT_ID, s, u, "campaign", "1",        token)
     ads       = get_insights(ACCOUNT_ID, s, u, "ad",       "1",        token)
-    age       = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "age")
-    gender    = get_insights(ACCOUNT_ID, s, u, "campaign", "all_days", token, "gender")
+    age       = get_insights(ACCOUNT_ID, s, u, "campaign", "1",        token, "age")
+    gender    = get_insights(ACCOUNT_ID, s, u, "campaign", "1",        token, "gender")
     ad_urls   = fetch_ad_urls(token)
     return {"daily": daily, "campaigns": campaigns, "ads": ads,
             "age": age, "gender": gender, "ad_urls": ad_urls,
